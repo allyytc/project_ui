@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sally's Coffee Shop UI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <button class="nav-btn active" id="nav-items">Items</button>
+            <button class="nav-btn" id="nav-history">History</button>
+            <button class="nav-btn" id="nav-inventory">Inventory</button>
+            <button class="nav-btn" id="nav-customers">Customers</button>
+        </nav>
+        <div class="main-content items-homepage page" id="page-items">
+            <div class="order-summary">
+                <div class="order-header">
+                    <span>Order &lt;#85&gt;</span>
+                    <!-- -----------Change to accurate current time and order # to match history in future -->
+                    <span class="order-time">11:30am  2/10/26</span>
+                </div>
+                <ul class="order-list" id="order-list">
+                    <!-- Order items will go here -->
+                </ul>
+                <div class="order-total">
+                    <span>Total:</span>
+                    <span id="order-total-val">$0.00</span>
+                </div>
+            </div>
+            <div class="items-grid" id="items-grid">
+                <!-- Menu items will be rendered here by JS -->
+            </div>
+        </div>
+        <div class="main-content history-page page" id="page-history" style="display:none;">
+            <div class="order-summary" id="history-order-summary">
+                <div class="order-header">
+                    <span id="history-order-title">Order &lt;#&gt;</span>
+                    <span class="order-time" id="history-order-time"></span>
+                </div>
+                <ul class="order-list" id="history-order-list">
+                    <!-- Selected order items appear here -->
+                </ul>
+                <div class="order-total">
+                    <span>Total:</span>
+                    <span id="history-order-total">$0.00</span>
+                </div>
+            </div>
+            <div class="history-table-wrap">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date &amp; Time</th>
+                            <th>OrderID</th>
+                            <th>Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <!-- History rows rendered by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="main-content inventory-page page" id="page-inventory" style="display:none;">
+            <div class="status-panel">
+                <div class="status-header">Status</div>
+                <ul class="status-list" id="status-list">
+                    <!-- Status items rendered by JS -->
+                </ul>
+            </div>
+            <div class="inventory-table-wrap">
+                <table class="inventory-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Stock</th>
+                            <th>Location</th>
+                            <!-- -----------Add a filter for stock and location in the future? -->
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-tbody">
+                        <!-- -----------Inventory rows rendered by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>
