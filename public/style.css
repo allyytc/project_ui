@@ -429,3 +429,12 @@ body {
 .action-btn:hover {
     background: #666;
 }
+
+.history-item-row:hover {
+    background-color: #f0f0f0;
+}
+
+.order-expand-details li {
+    border-bottom: 1px dashed #ddd;
+    padding: 2px 0;
+}
