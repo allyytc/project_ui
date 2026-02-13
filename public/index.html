@@ -85,6 +85,35 @@
                 </table>
             </div>
         </div>
+        <div class="main-content customers-page page" id="page-customers" style="display:none;">
+            <div class="status-panel">
+                <div class="status-header">Customer Profile</div>
+                <div id="customer-details" style="padding: 1vw; font-size: 1.2vw;">
+                    <p>Select a customer to view details.</p>
+                </div>
+            </div>
+            
+            <div class="customers-table-wrap">
+                <div class="search-add-bar">
+                    <input type="text" id="input-name" placeholder="Name">
+                    <input type="text" id="input-phone" placeholder="Phone Number">
+                    <button class="action-btn" id="add-customer-btn" title="Add Customer">+</button>
+                    <button class="action-btn" id="search-customer-btn" title="Search">🔍</button>
+                </div>
+
+                <table class="customers-table">
+                    <thead>
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Phone Number</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customers-tbody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <script src="main.js"></script>
 </body>

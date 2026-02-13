@@ -343,3 +343,89 @@ body {
 .inventory-table td:last-child {
 	text-align: right;
 }
+
+/* Customers page */
+.customers-page {
+    justify-content: flex-start;
+}
+
+.customers-table-wrap {
+    background: #f5dfe5;
+    border-radius: 12px;
+    padding: 2vw;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    max-height: 100%;
+    box-sizing: border-box;
+}
+
+.customers-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1.1vw;
+}
+
+.customers-table thead th {
+    text-align: left;
+    padding: 0.6em 1em;
+    border-bottom: 2px solid #bbb;
+    background: transparent;
+    font-size: 1.2vw;
+    color: #333;
+}
+
+.customers-table tbody tr {
+    border-bottom: 1px solid #ccc;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.customers-table tbody tr:hover {
+    background: #f0ccd5;
+}
+
+.customers-table tbody tr.selected {
+    background: #e8b8c4;
+}
+
+.customers-table td {
+    padding: 0.6em 1em;
+    color: #444;
+}
+
+.customers-table td:last-child, 
+.customers-table thead th:last-child {
+    text-align: right;
+}
+
+.search-add-bar {
+    display: flex;
+    gap: 1vw;
+    margin-bottom: 1.5vw;
+    padding: 0 1em 1vw 1em;
+    border-bottom: 2px solid #bbb;
+}
+
+.search-add-bar input {
+    padding: 0.5em;
+    font-size: 1vw;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    flex: 1;
+}
+
+.action-btn {
+    padding: 0 1.2vw;
+    font-size: 1.2vw;
+    font-weight: bold;
+    cursor: pointer;
+    background: #444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.action-btn:hover {
+    background: #666;
+}
