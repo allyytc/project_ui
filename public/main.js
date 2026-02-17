@@ -230,23 +230,135 @@ function renderCustomers(results) {
     });
 }
 
+// --- Updated showCustomerProfile in main.js ---
+
 function showCustomerProfile(customer) {
     const profilePanel = document.getElementById('customer-details');
+    
+    // We render the "View Mode" by default
+    renderProfileViewMode(customer);
+}
+
+function renderProfileViewMode(customer) {
+    const profilePanel = document.getElementById('customer-details');
+    
+    // 1. Header with Edit Button
     profilePanel.innerHTML = `
-        <div class="profile-meta" style="margin-bottom: 1.5vw; border-bottom: 1px solid #ccc; padding-bottom: 0.5vw;">
-            <p><strong>Name:</strong> ${customer.name}</p>
-            <p><strong>Phone:</strong> ${customer.phone}</p>
-            <p><strong>Points:</strong> ${customer.numPoints}</p>
+        <div class="profile-header-row">
+            <span class="profile-title-text">Customer Profile</span>
+            <div class="profile-actions">
+                <button class="icon-btn edit-btn" id="edit-profile-btn" title="Edit Profile">✎</button>
+            </div>
         </div>
+        
+        <div id="profile-data-container">
+            <div class="profile-meta" style="margin-bottom: 1.5vw; border-bottom: 1px solid #ccc; padding-bottom: 0.5vw;">
+                <p><strong>Name:</strong> ${customer.name}</p>
+                <p><strong>Phone:</strong> ${customer.phone}</p>
+                <p><strong>Points:</strong> ${customer.numPoints}</p>
+            </div>
+        </div>
+
         <div class="profile-orders">
             <div class="status-header" style="font-size: 1.1vw; margin-bottom: 0.5vw;">Order History</div>
             <div id="profile-order-list"></div>
         </div>
     `;
 
+    // 2. Attach Listener to Edit Button
+    document.getElementById('edit-profile-btn').onclick = () => enableEditMode(customer);
+
+    // 3. Render Orders (Same as before)
+    renderProfileOrders(customer);
+}
+
+function enableEditMode(customer) {
+    const container = document.getElementById('profile-data-container');
+    const actionsDiv = document.querySelector('.profile-actions');
+    let isMarkedForDeletion = false;
+
+    // 1. Replace Buttons: Show Green Check & Red Trash
+    actionsDiv.innerHTML = `
+        <button class="icon-btn confirm-btn" id="confirm-edit-btn" title="Save Changes">✔</button>
+        <button class="icon-btn delete-btn" id="delete-toggle-btn" title="Delete Customer">🗑</button>
+    `;
+
+    // 2. Replace Text with Inputs (Pre-filled)
+    container.innerHTML = `
+        <div class="profile-meta" id="edit-form-wrapper" style="margin-bottom: 1.5vw; border-bottom: 1px solid #ccc; padding-bottom: 0.5vw;">
+            <label style="font-size:0.9vw; font-weight:bold;">Name:</label>
+            <input type="text" class="profile-input" id="edit-name" value="${customer.name}">
+            
+            <label style="font-size:0.9vw; font-weight:bold;">Phone:</label>
+            <input type="text" class="profile-input" id="edit-phone" value="${customer.phone}">
+            
+            <label style="font-size:0.9vw; font-weight:bold;">Points:</label>
+            <input type="number" class="profile-input" id="edit-points" value="${customer.numPoints}">
+        </div>
+    `;
+
+    // 3. Delete Toggle Logic
+    const deleteBtn = document.getElementById('delete-toggle-btn');
+    const confirmBtn = document.getElementById('confirm-edit-btn');
+    const formWrapper = document.getElementById('edit-form-wrapper');
+    const inputs = formWrapper.querySelectorAll('input');
+
+    deleteBtn.onclick = () => {
+        isMarkedForDeletion = !isMarkedForDeletion; // Toggle state
+        
+        if (isMarkedForDeletion) {
+            formWrapper.classList.add('pending-delete-state');
+            inputs.forEach(input => input.disabled = true); // Disable inputs while marked
+            confirmBtn.title = "Confirm Deletion";
+        } else {
+            formWrapper.classList.remove('pending-delete-state');
+            inputs.forEach(input => input.disabled = false);
+            confirmBtn.title = "Save Changes";
+        }
+    };
+
+    // 4. Confirm (Green Check) Logic
+    confirmBtn.onclick = () => {
+        if (isMarkedForDeletion) {
+            // --- PERFORM DELETION ---
+            
+            // A. Remove from Customer Data array
+            const index = customerData.findIndex(c => c.customerID === customer.customerID);
+            if (index > -1) {
+                customerData.splice(index, 1);
+            }
+
+            // B. Reset UI
+            renderCustomers(); // Updates table
+            document.getElementById('customer-details').innerHTML = '<p style="padding:1vw;">Select a customer to view details.</p>';
+            alert(`Customer deleted. Past orders are now linked to "Deleted User: ${customer.customerID}"`);
+
+        } else {
+            // --- PERFORM SAVE ---
+            
+            const newName = document.getElementById('edit-name').value;
+            const newPhone = document.getElementById('edit-phone').value;
+            const newPoints = parseInt(document.getElementById('edit-points').value);
+
+            if(newName && newPhone) {
+                // Update Object
+                customer.name = newName;
+                customer.phone = newPhone;
+                customer.numPoints = newPoints;
+
+                // Update UI
+                renderCustomers(); // Update table row
+                renderProfileViewMode(customer); // Return to View Mode
+            } else {
+                alert("Name and Phone cannot be empty.");
+            }
+        }
+    };
+}
+
+// Helper to render the order list (extracted from your previous code)
+function renderProfileOrders(customer) {
     const orderContainer = document.getElementById('profile-order-list');
-    
-    // Filter orders belonging to this customer
     const personalHistory = orderHistory.filter(o => o.customerID === customer.customerID);
 
     if (personalHistory.length === 0) {
@@ -255,24 +367,16 @@ function showCustomerProfile(customer) {
     }
 
     personalHistory.forEach(order => {
-        // --- NEW LOGIC START: Aggregate items ---
+        // Aggregation Logic
         const aggregatedItems = {};
-        
         order.items.forEach(item => {
             if (aggregatedItems[item.name]) {
                 aggregatedItems[item.name].count += 1;
             } else {
-                aggregatedItems[item.name] = {
-                    name: item.name,
-                    price: item.price,
-                    count: 1
-                };
+                aggregatedItems[item.name] = { name: item.name, price: item.price, count: 1 };
             }
         });
-        
-        // Convert the object back to an array for mapping
         const uniqueItemsList = Object.values(aggregatedItems);
-        // --- NEW LOGIC END ---
 
         const orderRow = document.createElement('div');
         orderRow.className = 'history-item-row';
@@ -287,25 +391,18 @@ function showCustomerProfile(customer) {
                 <ul style="list-style:none; padding:0; margin:0;">
                     ${uniqueItemsList.map(item => `
                         <li style="display:flex; justify-content:space-between;">
-                            <span>
-                                ${item.name} 
-                                ${item.count > 1 ? `<span style="font-weight:bold; color: #666;">- x${item.count}</span>` : ''}
-                            </span>
-                            <span>$${(item.price * item.count).toFixed(2)}</span>
+                            <span>${item.name} ${item.count > 1 ? `<span style="font-weight:bold; color: #666;">- x${item.count}</span>` : ''}</span>
+                            <span>$${item.price.toFixed(2)}</span>
                         </li>
                     `).join('')}
                 </ul>
             </div>
         `;
 
-        // Toggle expansion
         orderRow.onclick = (e) => {
             const details = orderRow.querySelector('.order-expand-details');
             const isVisible = details.style.display === 'block';
-            
-            // Close all others first (optional, for cleaner UI)
             document.querySelectorAll('.order-expand-details').forEach(d => d.style.display = 'none');
-            
             details.style.display = isVisible ? 'none' : 'block';
             e.stopPropagation();
         };
@@ -313,6 +410,7 @@ function showCustomerProfile(customer) {
         orderContainer.appendChild(orderRow);
     });
 }
+
 // Search: Explicit action only
 document.getElementById('search-customer-btn').addEventListener('click', () => {
     const n = nameInp.value.toLowerCase();
