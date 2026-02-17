@@ -92,7 +92,7 @@ let orderHistory = [
     { id: 5002, customerID: 2, date: '2/05/26', time: '9:33am', cost: 3.75, items: [
         { name: 'Butter Croissant', price: 3.75 }
     ]},
-    { id: 5003, customerID: 1, date: '2/05/26', time: '11:56am', cost: 12.75, items: [
+    { id: 5003, customerID: 1, date: '2/05/26', time: '11:56am', cost: 13.50, items: [
         { name: 'Double Espresso', price: 3.00 },
         { name: 'Double Espresso', price: 3.00 },
         { name: 'Butter Croissant', price: 3.75 },
@@ -255,6 +255,25 @@ function showCustomerProfile(customer) {
     }
 
     personalHistory.forEach(order => {
+        // --- NEW LOGIC START: Aggregate items ---
+        const aggregatedItems = {};
+        
+        order.items.forEach(item => {
+            if (aggregatedItems[item.name]) {
+                aggregatedItems[item.name].count += 1;
+            } else {
+                aggregatedItems[item.name] = {
+                    name: item.name,
+                    price: item.price,
+                    count: 1
+                };
+            }
+        });
+        
+        // Convert the object back to an array for mapping
+        const uniqueItemsList = Object.values(aggregatedItems);
+        // --- NEW LOGIC END ---
+
         const orderRow = document.createElement('div');
         orderRow.className = 'history-item-row';
         orderRow.style = "cursor:pointer; border-bottom:1px solid #eee; padding: 0.5vw 0;";
@@ -266,10 +285,13 @@ function showCustomerProfile(customer) {
             </div>
             <div class="order-expand-details" style="display:none; padding: 0.5vw; background: #f9f9f9; font-size: 0.9vw; margin-top: 0.3vw;">
                 <ul style="list-style:none; padding:0; margin:0;">
-                    ${order.items.map(item => `
+                    ${uniqueItemsList.map(item => `
                         <li style="display:flex; justify-content:space-between;">
-                            <span>${item.name}</span>
-                            <span>$${item.price.toFixed(2)}</span>
+                            <span>
+                                ${item.name} 
+                                ${item.count > 1 ? `<span style="font-weight:bold; color: #666;">- x${item.count}</span>` : ''}
+                            </span>
+                            <span>$${(item.price * item.count).toFixed(2)}</span>
                         </li>
                     `).join('')}
                 </ul>
@@ -315,6 +337,154 @@ document.getElementById('add-customer-btn').addEventListener('click', () => {
     } else {
         alert("Enter both Name and Phone Number to add a customer.");
     }
+});
+
+
+// --- Place Order & Autocomplete Logic ---
+
+const nameInput = document.getElementById('order-customer-name');
+const hintInput = document.getElementById('order-customer-hint');
+const phoneInput = document.getElementById('order-customer-phone');
+const newCustomerFields = document.getElementById('new-customer-fields');
+const placeOrderBtn = document.getElementById('place-order-btn');
+
+// Helper to reset UI state
+function setExistingCustomerState() {
+    newCustomerFields.style.display = 'none';
+    placeOrderBtn.style.backgroundColor = '#4CAF50'; // Green
+    placeOrderBtn.textContent = 'Place Order';
+}
+
+function setNewCustomerState() {
+    newCustomerFields.style.display = 'block';
+    placeOrderBtn.style.backgroundColor = '#ff9800'; // Orange
+    placeOrderBtn.textContent = 'Create account and place order?';
+}
+
+// 1. Listen for typing (Input Event)
+nameInput.addEventListener('input', function() {
+    const val = this.value;
+    
+    // Clear hint if input is empty
+    if (!val) {
+        hintInput.value = '';
+        setExistingCustomerState(); // Default back to clean state
+        return;
+    }
+
+    // A. Autocomplete/Hint Logic
+    const match = customerData.find(c => c.name.toLowerCase().startsWith(val.toLowerCase()));
+    
+    if (match) {
+        hintInput.value = match.name;
+    } else {
+        hintInput.value = '';
+    }
+
+    // B. New Customer Detection Logic
+    // Check for EXACT match to determine if we need the phone field
+    const exactMatch = customerData.find(c => c.name.toLowerCase() === val.toLowerCase());
+
+    if (exactMatch) {
+        setExistingCustomerState();
+    } else {
+        setNewCustomerState();
+    }
+});
+
+// 2. Listen for Tab Key (Autocomplete)
+nameInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Tab' && hintInput.value) {
+        e.preventDefault();
+        this.value = hintInput.value;
+        setExistingCustomerState(); // We autofilled an existing name, so hide phone field
+    }
+});
+
+// 3. Place Order Button Logic
+placeOrderBtn.addEventListener('click', () => {
+    // Validation: Items
+    if (order.length === 0) {
+        alert("Please add items to the order first.");
+        return;
+    }
+    
+    const customerName = nameInput.value.trim();
+    if (!customerName) {
+        alert("Please enter a customer name.");
+        return;
+    }
+
+    // Setup Date Data
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+    const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    // Identify Customer
+    let customer = customerData.find(c => c.name.toLowerCase() === customerName.toLowerCase());
+    let customerID;
+
+    if (customer) {
+        // --- EXISTING CUSTOMER ---
+        customerID = customer.customerID;
+        customer.numPoints += order.length;
+    } else {
+        // --- NEW CUSTOMER ---
+        const customerPhone = phoneInput.value.trim();
+        
+        // Validation: Phone is required for new accounts
+        if (!customerPhone) {
+            alert("This is a new customer. Please enter a phone number to create the account.");
+            return;
+        }
+
+        const maxId = customerData.reduce((max, c) => (c.customerID > max ? c.customerID : max), 0);
+        customerID = maxId + 1;
+        
+        const newCustomer = {
+            customerID: customerID,
+            name: customerName,
+            phone: customerPhone,
+            numPoints: order.length
+        };
+        customerData.push(newCustomer);
+    }
+
+    // Update Inventory
+    order.forEach(orderItem => {
+        const inventoryItem = inventoryData.find(inv => inv.name.toLowerCase() === orderItem.name.toLowerCase());
+        if (inventoryItem) {
+            inventoryItem.stock = Math.max(0, inventoryItem.stock - 1);
+        }
+    });
+
+    // Update History
+    const totalCost = order.reduce((sum, item) => sum + item.price, 0);
+    const newOrderID = orderHistory.length > 0 ? orderHistory[orderHistory.length - 1].id + 1 : 5001;
+
+    const newHistoryEntry = {
+        id: newOrderID,
+        customerID: customerID,
+        date: dateStr,
+        time: timeStr,
+        cost: totalCost,
+        items: [...order]
+    };
+    orderHistory.push(newHistoryEntry);
+
+    // Cleanup & Refresh
+    order = []; 
+    nameInput.value = ''; 
+    hintInput.value = ''; 
+    phoneInput.value = ''; // Clear phone
+    
+    setExistingCustomerState(); // Reset button to green/hidden phone
+
+    renderOrder();     
+    renderHistory();    
+    renderInventory();  
+    renderCustomers();  
+
 });
 
 renderMenu();
