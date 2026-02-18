@@ -121,26 +121,51 @@ function renderHistory() {
 }
 
 function showHistoryOrder(idx) {
-	const entry = orderHistory[idx];
-	document.getElementById('history-order-title').textContent = `Order <#${entry.id}>`;
-	document.getElementById('history-order-time').textContent = `${entry.time}  ${entry.date}`;
-	const list = document.getElementById('history-order-list');
-	list.innerHTML = '';
-	let total = 0;
-	entry.items.forEach(item => {
-		const li = document.createElement('li');
-		li.innerHTML = `
-			<span>${item.name}</span>
-			<span class="order-price">$${item.price.toFixed(2)}</span>
-		`;
-		list.appendChild(li);
-		total += item.price;
-	});
-	document.getElementById('history-order-total').textContent = `$${total.toFixed(2)}`;
-	// Highlight selected row
-	const rows = document.querySelectorAll('#history-tbody tr');
-	rows.forEach(r => r.classList.remove('selected'));
-	rows[idx].classList.add('selected');
+    const entry = orderHistory[idx];
+    document.getElementById('history-order-title').textContent = `Order <#${entry.id}>`;
+    document.getElementById('history-order-time').textContent = `${entry.time}  ${entry.date}`;
+    
+    const list = document.getElementById('history-order-list');
+    list.innerHTML = '';
+    
+    // 1. Aggregate items (Count quantities)
+    const aggregatedItems = {};
+    entry.items.forEach(item => {
+        if (aggregatedItems[item.name]) {
+            aggregatedItems[item.name].count += 1;
+            // We don't add price here because we just want the unit price for display
+            // Total cost is already calculated in entry.cost
+        } else {
+            aggregatedItems[item.name] = { 
+                name: item.name, 
+                price: item.price, 
+                count: 1 
+            };
+        }
+    });
+
+    // 2. Render the aggregated list
+    Object.values(aggregatedItems).forEach(item => {
+        const li = document.createElement('li');
+        
+        // Check if we need to show "x2", "x3", etc.
+        const qtyDisplay = item.count > 1 
+            ? `<span style="font-weight:bold; color: #666; margin-left: 0.5em;">x${item.count}</span>` 
+            : '';
+
+        li.innerHTML = `
+            <span>${item.name}${qtyDisplay}</span>
+            <span class="order-price">$${item.price.toFixed(2)}</span>
+        `;
+        list.appendChild(li);
+    });
+
+    document.getElementById('history-order-total').textContent = `$${entry.cost.toFixed(2)}`;
+
+    // Highlight selected row
+    const rows = document.querySelectorAll('#history-tbody tr');
+    rows.forEach(r => r.classList.remove('selected'));
+    rows[idx].classList.add('selected');
 }
 
 // --- Inventory ---
@@ -166,39 +191,157 @@ const inventoryData = [
 	{ name: 'Vanilla Scone', stock: 15, location: 'Shelf 4A' },
 ];
 
+// --- Updated Inventory Logic ---
+
+let currentInvItem = null; // Store the item currently being viewed
+
 function renderInventory() {
-	// Render inventory table
-	const tbody = document.getElementById('inventory-tbody');
-	tbody.innerHTML = '';
-	inventoryData.forEach(item => {
-		const tr = document.createElement('tr');
-		tr.innerHTML = `
-			<td>${item.name}</td>
-			<td>${item.stock}</td>
-			<td>${item.location}</td>
-		`;
-		tbody.appendChild(tr);
-	});
+    // 1. Render Table
+    const tbody = document.getElementById('inventory-tbody');
+    tbody.innerHTML = '';
+    
+    inventoryData.forEach((item, idx) => {
+        const tr = document.createElement('tr');
+        // Add click listener to select item
+        tr.onclick = () => showInventoryItem(item, idx);
+        
+        // Highlight logic (optional, but good UX)
+        tr.className = 'inventory-row'; // You can add :hover styles in CSS for this class
+        
+        tr.innerHTML = `
+            <td>${item.name}</td>
+            <td>${item.stock}</td>
+            <td>${item.location}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 
-	// Render status panel, items that need attention first (yellow/red)
-	const statusList = document.getElementById('status-list');
-	statusList.innerHTML = '';
-	// Sort: red first, then yellow, then green
-	// ----------- create a filter for status in the future?
-	const sorted = [...inventoryData].sort((a, b) => a.stock - b.stock);
-	sorted.forEach(item => {
-		let color = 'green';
-		if (item.stock === 0) color = 'red';
-		else if (item.stock < 100) color = 'yellow';
-
-		const li = document.createElement('li');
-		li.innerHTML = `
-			<span>${item.name}</span>
-			<span class="status-dot ${color}"></span>
-		`;
-		statusList.appendChild(li);
-	});
+    // 2. Render Status List (Logic remains same)
+    renderStatusList();
 }
+
+function renderStatusList() {
+    const statusList = document.getElementById('status-list');
+    statusList.innerHTML = '';
+    
+    // Sort: red first, then yellow, then green
+    const sorted = [...inventoryData].sort((a, b) => a.stock - b.stock);
+    
+    sorted.forEach(item => {
+        let color = 'green';
+        if (item.stock === 0) color = 'red';
+        else if (item.stock < 100) color = 'yellow';
+
+        // Only show items that need attention? Or all? 
+        // Showing all for now based on previous code, or just red/yellow to save space.
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span>${item.name}</span>
+            <span class="status-dot ${color}"></span>
+        `;
+        // Allow clicking status items to open details too
+        li.style.cursor = 'pointer';
+        li.onclick = () => {
+             // Find original index if needed, or just pass item
+             showInventoryItem(item);
+        };
+        statusList.appendChild(li);
+    });
+}
+
+// --- New Side Panel Logic ---
+
+function showInventoryItem(item) {
+    currentInvItem = item;
+
+    // 1. Switch Panel Views
+    document.getElementById('inventory-status-view').style.display = 'none';
+    document.getElementById('inventory-detail-view').style.display = 'flex';
+
+    // 2. Populate Read-Only Data
+    document.getElementById('inv-detail-title').textContent = item.name;
+    document.getElementById('disp-stock').textContent = item.stock;
+    document.getElementById('disp-location').textContent = item.location;
+
+    // 3. Reset Edit State (Ensure we are in View mode)
+    toggleInvEditMode(false);
+
+    // 4. Highlight Row (Visual feedback)
+    const rows = document.querySelectorAll('#inventory-tbody tr');
+    rows.forEach(r => r.style.background = ''); // Reset
+    // Find the row that matches this item name (simple approach)
+    Array.from(rows).find(r => r.cells[0].textContent === item.name).style.background = '#d0c4e0';
+}
+
+function toggleInvEditMode(isEdit) {
+    const displayDiv = document.getElementById('inv-display-content');
+    const editDiv = document.getElementById('inv-edit-content');
+    const btnEdit = document.getElementById('btn-inv-edit');
+    const btnConfirm = document.getElementById('btn-inv-confirm');
+
+    if (isEdit) {
+        // Switch to Inputs
+        displayDiv.style.display = 'none';
+        editDiv.style.display = 'block';
+        
+        // Show Save, Hide Edit
+        btnEdit.style.display = 'none';
+        btnConfirm.style.display = 'inline-block';
+
+        // Pre-fill inputs
+        document.getElementById('edit-inv-stock').value = currentInvItem.stock;
+        document.getElementById('edit-inv-location').value = currentInvItem.location;
+    } else {
+        // Switch to Text
+        displayDiv.style.display = 'block';
+        editDiv.style.display = 'none';
+
+        // Show Edit, Hide Save
+        btnEdit.style.display = 'inline-block';
+        btnConfirm.style.display = 'none';
+    }
+}
+
+// --- Event Listeners for Inventory Actions ---
+
+// 1. Back Button
+document.getElementById('btn-inv-back').onclick = () => {
+    document.getElementById('inventory-detail-view').style.display = 'none';
+    document.getElementById('inventory-status-view').style.display = 'block';
+    
+    // Clear selection highlight
+    const rows = document.querySelectorAll('#inventory-tbody tr');
+    rows.forEach(r => r.style.background = '');
+};
+
+// 2. Edit Button
+document.getElementById('btn-inv-edit').onclick = () => {
+    toggleInvEditMode(true);
+};
+
+// 3. Confirm/Save Button
+document.getElementById('btn-inv-confirm').onclick = () => {
+    const newStock = parseInt(document.getElementById('edit-inv-stock').value);
+    const newLoc = document.getElementById('edit-inv-location').value.trim();
+
+    if (newStock >= 0 && newLoc) {
+        // Update Data
+        currentInvItem.stock = newStock;
+        currentInvItem.location = newLoc;
+
+        // Update UI
+        renderInventory(); // Re-renders table AND status list (colors might change)
+        
+        // Refresh the detail view with new data
+        document.getElementById('disp-stock').textContent = newStock;
+        document.getElementById('disp-location').textContent = newLoc;
+
+        // Return to View Mode
+        toggleInvEditMode(false);
+    } else {
+        alert("Stock must be a positive number and Location cannot be empty.");
+    }
+};
 
 // --- Customers Data ---
 let customerData = [
@@ -274,16 +417,19 @@ function renderProfileViewMode(customer) {
 
 function enableEditMode(customer) {
     const container = document.getElementById('profile-data-container');
-    const actionsDiv = document.querySelector('.profile-actions');
+    
+    // Select the .profile-actions strictly INSIDE the customer-details panel
+    const actionsDiv = document.getElementById('customer-details').querySelector('.profile-actions');
+    
     let isMarkedForDeletion = false;
 
-    // 1. Replace Buttons: Show Green Check & Red Trash
+    // 1. Replace Buttons
     actionsDiv.innerHTML = `
         <button class="icon-btn confirm-btn" id="confirm-edit-btn" title="Save Changes">✔</button>
         <button class="icon-btn delete-btn" id="delete-toggle-btn" title="Delete Customer">🗑</button>
     `;
 
-    // 2. Replace Text with Inputs (Pre-filled)
+    // 2. Inject Inputs
     container.innerHTML = `
         <div class="profile-meta" id="edit-form-wrapper" style="margin-bottom: 1.5vw; border-bottom: 1px solid #ccc; padding-bottom: 0.5vw;">
             <label style="font-size:0.9vw; font-weight:bold;">Name:</label>
@@ -297,18 +443,26 @@ function enableEditMode(customer) {
         </div>
     `;
 
-    // 3. Delete Toggle Logic
     const deleteBtn = document.getElementById('delete-toggle-btn');
     const confirmBtn = document.getElementById('confirm-edit-btn');
     const formWrapper = document.getElementById('edit-form-wrapper');
     const inputs = formWrapper.querySelectorAll('input');
 
+    // --- NEW: Add Enter Key Listener to all new inputs ---
+    inputs.forEach(input => {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                confirmBtn.click(); // Simulate clicking the green check
+            }
+        });
+    });
+
+    // 3. Delete Toggle Logic
     deleteBtn.onclick = () => {
-        isMarkedForDeletion = !isMarkedForDeletion; // Toggle state
-        
+        isMarkedForDeletion = !isMarkedForDeletion;
         if (isMarkedForDeletion) {
             formWrapper.classList.add('pending-delete-state');
-            inputs.forEach(input => input.disabled = true); // Disable inputs while marked
+            inputs.forEach(input => input.disabled = true);
             confirmBtn.title = "Confirm Deletion";
         } else {
             formWrapper.classList.remove('pending-delete-state');
@@ -317,45 +471,33 @@ function enableEditMode(customer) {
         }
     };
 
-    // 4. Confirm (Green Check) Logic
+    // 4. Confirm Logic
     confirmBtn.onclick = () => {
         if (isMarkedForDeletion) {
-            // --- PERFORM DELETION ---
-            
-            // A. Remove from Customer Data array
             const index = customerData.findIndex(c => c.customerID === customer.customerID);
-            if (index > -1) {
-                customerData.splice(index, 1);
-            }
+            if (index > -1) customerData.splice(index, 1);
 
-            // B. Reset UI
-            renderCustomers(); // Updates table
+            renderCustomers();
             document.getElementById('customer-details').innerHTML = '<p style="padding:1vw;">Select a customer to view details.</p>';
-            alert(`Customer deleted. Past orders are now linked to "Deleted User: ${customer.customerID}"`);
-
+            alert(`Customer deleted.`);
         } else {
-            // --- PERFORM SAVE ---
-            
             const newName = document.getElementById('edit-name').value;
             const newPhone = document.getElementById('edit-phone').value;
             const newPoints = parseInt(document.getElementById('edit-points').value);
 
             if(newName && newPhone) {
-                // Update Object
                 customer.name = newName;
                 customer.phone = newPhone;
                 customer.numPoints = newPoints;
 
-                // Update UI
-                renderCustomers(); // Update table row
-                renderProfileViewMode(customer); // Return to View Mode
+                renderCustomers();
+                renderProfileViewMode(customer);
             } else {
                 alert("Name and Phone cannot be empty.");
             }
         }
     };
 }
-
 // Helper to render the order list (extracted from your previous code)
 function renderProfileOrders(customer) {
     const orderContainer = document.getElementById('profile-order-list');
@@ -583,6 +725,18 @@ placeOrderBtn.addEventListener('click', () => {
     renderInventory();  
     renderCustomers();  
 
+});
+
+// Allow pressing "Enter" to save Inventory edits
+['edit-inv-stock', 'edit-inv-location'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('btn-inv-confirm').click();
+            }
+        });
+    }
 });
 
 renderMenu();

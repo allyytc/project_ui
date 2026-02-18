@@ -66,9 +66,9 @@ body {
 	display: flex;
 	gap: 8px;
 	margin-bottom: 0;
-	margin-left: 500px;
 	position: relative;
 	z-index: 1;
+	justify-content: center
 }
 .nav-btn {
 	padding: 0.5em 1.5em;

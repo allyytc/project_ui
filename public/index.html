@@ -9,8 +9,8 @@
 <body>
     <div class="container">
         <nav class="navbar">
-            <button class="nav-btn active" id="nav-items">Items</button>
-            <button class="nav-btn" id="nav-history">History</button>
+            <button class="nav-btn active" id="nav-items">Create Order</button>
+            <button class="nav-btn" id="nav-history">Order History</button>
             <button class="nav-btn" id="nav-inventory">Inventory</button>
             <button class="nav-btn" id="nav-customers">Customers</button>
         </nav>
@@ -86,12 +86,47 @@
             </div>
         </div>
         <div class="main-content inventory-page page" id="page-inventory" style="display:none;">
-            <div class="status-panel">
-                <div class="status-header">Status</div>
-                <ul class="status-list" id="status-list">
-                    <!-- Status items rendered by JS -->
-                </ul>
-            </div>
+            <div class="status-panel" id="inventory-panel">
+                
+                <div id="inventory-status-view">
+                    <div class="status-header">Status Alerts</div>
+                    <div style="padding: 1vw; text-align: center; color: #872828; font-size: 0.9vw;">
+                        <em>Click an item in the table to view details.</em>
+                    </div>
+                    <ul class="status-list" id="status-list">
+                        </ul>
+                        
+                </div>
+
+                <div id="inventory-detail-view" style="display:none; flex-direction: column; height: 100%;">
+                    
+                    <div class="profile-header-row">
+                        <div style="display: flex; align-items: center; gap: 0.5vw;">
+                            <button class="icon-btn" id="btn-inv-back" title="Back to Status List" style="background: transparent; font-size: 1.2vw;">←</button>
+                            <span class="profile-title-text" id="inv-detail-title" style="font-size: 1.2vw;">Item Name</span>
+                        </div>
+                        
+                        <div class="profile-actions">
+                            <button class="icon-btn edit-btn" id="btn-inv-edit" title="Edit Item">✎</button>
+                            <button class="icon-btn confirm-btn" id="btn-inv-confirm" title="Save Changes" style="display: none;">✔</button>
+                        </div>
+                    </div>
+
+                    <div id="inv-display-content" style="padding-top: 1vw;">
+                        <p><strong>Stock:</strong> <span id="disp-stock">0</span></p>
+                        <p><strong>Location:</strong> <span id="disp-location">--</span></p>
+                    </div>
+
+                    <div id="inv-edit-content" style="padding-top: 1vw; display: none;">
+                        <label style="font-size:0.9vw; font-weight:bold;">Stock Level:</label>
+                        <input type="number" class="profile-input" id="edit-inv-stock">
+                        
+                        <label style="font-size:0.9vw; font-weight:bold;">Location:</label>
+                        <input type="text" class="profile-input" id="edit-inv-location">
+                    </div>
+
+                </div>
+            </div>            
             <div class="inventory-table-wrap">
                 <table class="inventory-table">
                     <thead>
@@ -110,7 +145,6 @@
         </div>
         <div class="main-content customers-page page" id="page-customers" style="display:none;">
             <div class="status-panel">
-                <div class="status-header">Customer Profile</div>
                 <div id="customer-details" style="padding: 1vw; font-size: 1.2vw;">
                     <p>Select a customer to view details.</p>
                 </div>
