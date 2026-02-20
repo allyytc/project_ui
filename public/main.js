@@ -195,7 +195,7 @@ navButtons.forEach(btn => {
 		pages.forEach(p => {
 			p.style.display = p.id === 'page-' + target ? '' : 'none';
 		});
-		if (target === 'history') renderHistory();
+        if (target === 'history') { renderHistory(); renderQueue(); }
 		if (target === 'inventory') renderInventory();
 	});
 });
@@ -217,6 +217,29 @@ let orderHistory = [
     ]}
 ];
 
+// --- Active Queue ---
+let activeQueue = [];
+let nextQueueID = 1;
+let selectedQueueIdx = null;
+
+// Turns a flat items array into aggregated [{name, price, count}]
+function aggregateItems(items) {
+    const agg = {};
+    items.forEach(item => {
+        if (agg[item.name]) agg[item.name].count++;
+        else agg[item.name] = { name: item.name, price: item.price, count: 1 };
+    });
+    return Object.values(agg);
+}
+
+// Adjusts inventory. direction: -1 = reserve, +1 = restore
+function adjustInventory(items, direction) {
+    aggregateItems(items).forEach(aggItem => {
+        const inv = inventoryData.find(i => i.name.toLowerCase() === aggItem.name.toLowerCase());
+        if (inv) inv.stock = Math.max(0, inv.stock + direction * aggItem.count);
+    });
+}
+
 function renderHistory() {
 	const tbody = document.getElementById('history-tbody');
 	tbody.innerHTML = '';
@@ -231,11 +254,6 @@ function renderHistory() {
 		tr.onclick = () => showHistoryOrder(idx);
 		tbody.appendChild(tr);
 	});
-	// Clear the detail panel
-	document.getElementById('history-order-title').textContent = 'Order <#>';
-	document.getElementById('history-order-time').textContent = '';
-	document.getElementById('history-order-list').innerHTML = '';
-	document.getElementById('history-order-total').textContent = '$0.00';
 }
 
 function showHistoryOrder(idx) {
@@ -294,6 +312,232 @@ function showHistoryOrder(idx) {
     const rows = document.querySelectorAll('#history-tbody tr');
     rows.forEach(r => r.classList.remove('selected'));
     rows[idx].classList.add('selected');
+
+    // Deselect any active queue row
+    selectedQueueIdx = null;
+    document.querySelectorAll('#queue-tbody tr').forEach(r => r.classList.remove('selected'));
+}
+
+// --- Queue Rendering ---
+function renderQueue() {
+    const tbody = document.getElementById('queue-tbody');
+    const emptyMsg = document.getElementById('queue-empty-msg');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (activeQueue.length === 0) {
+        emptyMsg.style.display = 'block';
+        return;
+    }
+    emptyMsg.style.display = 'none';
+
+    activeQueue.forEach((entry, idx) => {
+        const tr = document.createElement('tr');
+        if (selectedQueueIdx === idx) tr.classList.add('selected');
+        tr.setAttribute('data-tooltip', `Click to view ${entry.customerName}'s order`);
+        tr.innerHTML = `
+            <td style="font-weight:bold;">${entry.customerName}</td>
+            <td>${entry.time}</td>
+            <td style="text-align:right;">$${entry.cost.toFixed(2)}</td>
+        `;
+        tr.onclick = () => showQueueOrder(idx);
+        tbody.appendChild(tr);
+    });
+}
+
+function showQueueOrder(idx) {
+    selectedQueueIdx = idx;
+    const entry = activeQueue[idx];
+    const agg = aggregateItems(entry.items);
+    const panel = document.getElementById('history-order-summary');
+
+    panel.innerHTML = `
+        <div class="profile-header-row" style="margin-bottom:0.8em;">
+            <span class="profile-title-text" style="font-size:1.2vw;">${entry.customerName}</span>
+            <div class="profile-actions">
+                <button class="icon-btn edit-btn" id="queue-edit-btn" data-tooltip="Edit or cancel this order">✎</button>
+            </div>
+        </div>
+        <div style="font-size:0.85vw; color:#888; margin-bottom:0.8em;">⏰ ${entry.time}</div>
+        <ul class="order-list">
+            ${agg.map(item => `
+                <li>
+                    <span>${item.name}${item.count > 1
+                        ? ` <span style="font-weight:bold; color:#666;">x${item.count}</span>`
+                        : ''}
+                    </span>
+                    <span class="order-price">$${item.price.toFixed(2)}</span>
+                </li>
+            `).join('')}
+            ${entry.redeemedDrink ? `
+                <li>
+                    <span style="color:green; font-style:italic;">Rewards: free ${entry.redeemedDrink}</span>
+                    <span class="order-price" style="color:green;">-$${entry.redeemedDrinkPrice.toFixed(2)}</span>
+                </li>` : ''}
+        </ul>
+        <div class="order-total" style="margin-top:1em;">
+            <span>Total:</span>
+            <span>$${entry.cost.toFixed(2)}</span>
+        </div>
+        <button id="queue-complete-btn" class="action-btn"
+                style="width:100%; margin-top:1vw; background:#4CAF50; padding:0.6em;"
+                data-tooltip="Mark this order as complete and move to history">
+            ✅ Complete Order
+        </button>
+    `;
+
+    document.getElementById('queue-edit-btn').onclick = () => enableQueueEditMode(idx);
+    document.getElementById('queue-complete-btn').onclick = () => completeQueueOrder(idx);
+
+    document.querySelectorAll('#queue-tbody tr').forEach((r, i) => r.classList.toggle('selected', i === idx));
+    document.querySelectorAll('#history-tbody tr').forEach(r => r.classList.remove('selected'));
+}
+
+function enableQueueEditMode(idx) {
+    const entry = activeQueue[idx];
+    const agg = aggregateItems(entry.items);
+    const panel = document.getElementById('history-order-summary');
+
+    panel.innerHTML = `
+        <div class="profile-header-row" style="margin-bottom:0.8em;">
+            <span class="profile-title-text" style="font-size:1.2vw;">${entry.customerName}</span>
+            <div class="profile-actions">
+                <button class="icon-btn confirm-btn" id="queue-save-btn" data-tooltip="Save changes">✔</button>
+                <button class="icon-btn delete-btn" id="queue-cancel-order-btn" data-tooltip="Cancel this order">🗑</button>
+            </div>
+        </div>
+        <ul class="order-list" id="queue-edit-list">
+            ${agg.map((item, i) => `
+                <li style="gap:0.5em;">
+                    <span style="flex:1; font-size:0.9vw;">${item.name}</span>
+                    <input type="number" class="qty-input" id="edit-qty-${i}"
+                           value="${item.count}" min="0"
+                           data-name="${item.name}" data-price="${item.price}">
+                    <span class="order-price">$${item.price.toFixed(2)}</span>
+                </li>
+            `).join('')}
+        </ul>
+        <div class="order-total" style="margin-top:1em;">
+            <span>Total:</span>
+            <span id="queue-edit-total">$${entry.cost.toFixed(2)}</span>
+        </div>
+        <div style="font-size:0.75vw; color:#888; text-align:right; margin-top:0.3em;">
+            Set qty to 0 to remove an item.
+        </div>
+    `;
+
+    // Live total update as user changes quantities
+    agg.forEach((item, i) => {
+        document.getElementById(`edit-qty-${i}`).addEventListener('input', () => {
+            let total = 0;
+            agg.forEach((it, j) => {
+                const qty = parseInt(document.getElementById(`edit-qty-${j}`)?.value) || 0;
+                total += qty * it.price;
+            });
+            document.getElementById('queue-edit-total').textContent = `$${total.toFixed(2)}`;
+        });
+    });
+
+    document.getElementById('queue-save-btn').onclick = () => saveQueueEdit(idx, agg);
+    document.getElementById('queue-cancel-order-btn').onclick = () => {
+        if (confirm(`Cancel order for ${entry.customerName}? Inventory will be restored.`)) {
+            cancelQueueOrder(idx);
+        }
+    };
+}
+
+function saveQueueEdit(idx, originalAgg) {
+    const entry = activeQueue[idx];
+    const newItems = [];
+    let newCost = 0;
+
+    originalAgg.forEach((item, i) => {
+        const newQty = parseInt(document.getElementById(`edit-qty-${i}`).value) || 0;
+        const diff = newQty - item.count;
+
+        // Adjust inventory by the difference only
+        const inv = inventoryData.find(inv => inv.name.toLowerCase() === item.name.toLowerCase());
+        if (inv) inv.stock = Math.max(0, inv.stock - diff);
+
+        for (let q = 0; q < newQty; q++) {
+            newItems.push({ name: item.name, price: item.price, type: item.type || 'drink' });
+            newCost += item.price;
+        }
+    });
+
+    if (newItems.length === 0) {
+        if (confirm("All items removed. Cancel this order entirely?")) {
+            cancelQueueOrder(idx);
+        }
+        return;
+    }
+
+    entry.items = newItems;
+    entry.cost = newCost;
+
+    renderQueue();
+    renderInventory();
+    showQueueOrder(idx); // Return to view mode with updated data
+}
+
+function completeQueueOrder(idx) {
+    const entry = activeQueue[idx];
+    const now = new Date();
+
+    const newHistoryEntry = {
+        id: orderHistory.length > 0 ? Math.max(...orderHistory.map(o => o.id)) + 1 : 5001,
+        customerID: entry.customerID,
+        date: now.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }),
+        time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        cost: entry.cost,
+        items: [...entry.items],
+        redeemedDrink: entry.redeemedDrink || null,
+        redeemedDrinkPrice: entry.redeemedDrinkPrice || 0
+    };
+    orderHistory.push(newHistoryEntry);
+    activeQueue.splice(idx, 1);
+    selectedQueueIdx = null;
+
+    // Reset sidebar to blank
+    document.getElementById('history-order-summary').innerHTML = `
+        <div class="order-header">
+            <span id="history-order-title">Order &lt;#&gt;</span>
+            <span class="order-time" id="history-order-time"></span>
+        </div>
+        <ul class="order-list" id="history-order-list"></ul>
+        <div class="order-total">
+            <span>Total:</span>
+            <span id="history-order-total">$0.00</span>
+        </div>
+    `;
+
+    renderQueue();
+    renderHistory();
+    renderCustomers();
+    updateOrderHeader();
+}
+
+function cancelQueueOrder(idx) {
+    const entry = activeQueue[idx];
+    adjustInventory(entry.items, +1); // Restore reserved stock
+    activeQueue.splice(idx, 1);
+    selectedQueueIdx = null;
+
+    // Reset sidebar to blank
+    document.getElementById('history-order-summary').innerHTML = `
+        <div class="order-header">
+            <span id="history-order-title">Order &lt;#&gt;</span>
+            <span class="order-time" id="history-order-time"></span>
+        </div>
+        <ul class="order-list" id="history-order-list"></ul>
+        <div class="order-total">
+            <span>Total:</span>
+            <span id="history-order-total">$0.00</span>
+        </div>
+    `;
+
+    renderQueue();
+    renderInventory();
 }
 
 // --- Inventory ---
@@ -800,22 +1044,20 @@ placeOrderBtn.addEventListener('click', () => {
 
     // Setup Date Data
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
     const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
     // Identify Customer
+    // NOTE: points are awarded on Complete, not here
     let customer = customerData.find(c => c.name.toLowerCase() === customerName.toLowerCase());
     let customerID;
 
-    // Count only drinks for points
     const drinkCount = order.filter(item => item.type === 'drink').length;
-
     if (customer) {
         // --- EXISTING CUSTOMER ---
         customerID = customer.customerID;
         customer.numPoints += drinkCount;
         if (redeemFreeDrink) {
-            customer.numPoints -= 10;
+            customer.numPoints -= 11;
         }
     } else {
         // --- NEW CUSTOMER ---
@@ -839,15 +1081,7 @@ placeOrderBtn.addEventListener('click', () => {
         customerData.push(newCustomer);
     }
 
-    // Update Inventory
-    order.forEach(orderItem => {
-        const inventoryItem = inventoryData.find(inv => inv.name.toLowerCase() === orderItem.name.toLowerCase());
-        if (inventoryItem) {
-            inventoryItem.stock = Math.max(0, inventoryItem.stock - 1);
-        }
-    });
-
-    // Update History, calculate cost with free drink discount
+    // Calculate cost with free drink discount
     let totalCost = order.reduce((sum, item) => sum + item.price, 0);
     let redeemedDrinkName = null;
     let redeemedDrinkPrice = 0;
@@ -865,19 +1099,21 @@ placeOrderBtn.addEventListener('click', () => {
             totalCost -= cheapestPrice;
         }
     }
-    const newOrderID = orderHistory.length > 0 ? orderHistory[orderHistory.length - 1].id + 1 : 5001;
 
-    const newHistoryEntry = {
-        id: newOrderID,
+    // Reserve inventory immediately when order enters queue
+    adjustInventory([...order], -1);
+
+    // Push to queue
+    activeQueue.push({
+        queueID: nextQueueID++,
         customerID: customerID,
-        date: dateStr,
+        customerName: customerName,
         time: timeStr,
-        cost: totalCost,
         items: [...order],
+        cost: totalCost,
         redeemedDrink: redeemedDrinkName,
         redeemedDrinkPrice: redeemedDrinkPrice
-    };
-    orderHistory.push(newHistoryEntry);
+    });
 
     // Cleanup & Refresh
     order = [];
@@ -889,7 +1125,7 @@ placeOrderBtn.addEventListener('click', () => {
     setExistingCustomerState(); // Reset button to green/hidden phone
 
     renderOrder();
-    renderHistory();
+    renderQueue();
     renderInventory();
     renderCustomers();
     updateOrderHeader();  

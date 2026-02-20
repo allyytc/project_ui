@@ -543,3 +543,13 @@ body {
 #custom-tooltip.visible {
 	opacity: 1;
 }
+
+/* Queue section additional CSS */
+.queue-section { margin-bottom: 1vw; }
+.queue-header-row { display: flex; align-items: baseline; gap: 1vw; margin-bottom: 0.8em; }
+.queue-title { font-weight: bold; font-size: 1.1vw; color: #8a6800; }
+.queue-table tbody tr { background: #fffbea; }
+.queue-table tbody tr:hover { background: #fff3c4; }
+.queue-table tbody tr.selected { background: #ffe090; }
+.queue-divider { border-top: 2px dashed #bbb; margin: 1.2vw 0; }
+.qty-input { width: 3.5em; padding: 0.2em; text-align: center; border: 1px solid #ccc; border-radius: 3px; font-size: 0.9vw; }

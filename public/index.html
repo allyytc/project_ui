@@ -82,6 +82,31 @@
                 </div>
             </div>
             <div class="history-table-wrap">
+
+                <!-- ACTIVE QUEUE -->
+                <div class="queue-section">
+                    <div class="queue-header-row">
+                        <span class="queue-title">🟡 Active Queue</span>
+                        <span style="font-size:0.85vw; color:#888;">Click an order to view or edit it.</span>
+                    </div>
+                    <table class="history-table queue-table">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Time</th>
+                                <th style="text-align:right;">Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-tbody"></tbody>
+                    </table>
+                    <p id="queue-empty-msg" style="text-align:center; color:#aaa; font-size:0.9vw; padding:0.8em 0; display:none;">
+                        No active orders in queue.
+                    </p>
+                </div>
+
+                <div class="queue-divider"></div>
+                <div style="font-weight:bold; font-size:1.1vw; margin-bottom:0.8em; color:#555;">✅ Completed Orders</div>
+
                 <table class="history-table">
                     <thead>
                         <tr>
@@ -94,6 +119,7 @@
                         <!-- History rows rendered by JS -->
                     </tbody>
                 </table>
+
             </div>
         </div>
         <div class="main-content inventory-page page" id="page-inventory" style="display:none;">
