@@ -1,37 +1,86 @@
+// --- Custom Tooltip System ---
+(function() {
+	const tip = document.createElement('div');
+	tip.id = 'custom-tooltip';
+	document.body.appendChild(tip);
+
+	document.addEventListener('mouseover', function(e) {
+		const el = e.target.closest('[data-tooltip]');
+		if (el) {
+			tip.textContent = el.getAttribute('data-tooltip');
+			tip.classList.add('visible');
+		}
+	});
+
+	document.addEventListener('mousemove', function(e) {
+		if (tip.classList.contains('visible')) {
+			let x = e.clientX + 12;
+			let y = e.clientY + 16;
+			// Keep tooltip on screen
+			if (x + tip.offsetWidth > window.innerWidth) x = e.clientX - tip.offsetWidth - 8;
+			if (y + tip.offsetHeight > window.innerHeight) y = e.clientY - tip.offsetHeight - 8;
+			tip.style.left = x + 'px';
+			tip.style.top = y + 'px';
+		}
+	});
+
+	document.addEventListener('mouseout', function(e) {
+		const el = e.target.closest('[data-tooltip]');
+		if (el) {
+			tip.classList.remove('visible');
+		}
+	});
+})();
+
 const menuItems = [
-	{ name: 'Drip coffee', price: 3.00},
-	{ name: 'Americano', price: 5.50},
-	{ name: 'Latte', price: 6.00 },
-	{ name: 'Flat White', price: 6.00 },
-	{ name: 'Oat milk latte', price: 7.00},
-	{ name: 'Cold brew', price: 5.50},
-	{ name: 'Cappuccino', price: 6.00},
-	{ name: 'Oat milk Cappuccino', price: 7.00},
-	{ name: 'Espresso', price: 5.00 },
-	{ name: 'Double Espresso', price: 5.50},
-	{ name: 'Mocha', price: 7.00},
-	{ name: 'Oat milk Mocha', price: 8.00 },
-	{ name: 'Chai latte', price: 5.50 },
-	{ name: 'London Fog', price: 5.50 },
-	{ name: 'Matcha latte', price: 7.50 },
-	{ name: 'Hot Chocolate', price: 5.00},
-	{ name: 'Steamed Milk', price: 4.50},
-	{ name: 'Butter Croissant', price: 5.50},
-	{ name: 'Vanilla Scone', price: 3.50}
+	{ name: 'Drip coffee', price: 3.00, type: 'drink'},
+	{ name: 'Americano', price: 5.50, type: 'drink'},
+	{ name: 'Latte', price: 6.00, type: 'drink'},
+	{ name: 'Flat White', price: 6.00, type: 'drink'},
+	{ name: 'Oat milk latte', price: 7.00, type: 'drink'},
+	{ name: 'Cold brew', price: 5.50, type: 'drink'},
+	{ name: 'Cappuccino', price: 6.00, type: 'drink'},
+	{ name: 'Oat milk Cappuccino', price: 7.00, type: 'drink'},
+	{ name: 'Espresso', price: 5.00, type: 'drink'},
+	{ name: 'Double Espresso', price: 5.50, type: 'drink'},
+	{ name: 'Mocha', price: 7.00, type: 'drink'},
+	{ name: 'Oat milk Mocha', price: 8.00, type: 'drink'},
+	{ name: 'Chai latte', price: 5.50, type: 'drink'},
+	{ name: 'London Fog', price: 5.50, type: 'drink'},
+	{ name: 'Matcha latte', price: 7.50, type: 'drink'},
+	{ name: 'Hot Chocolate', price: 5.00, type: 'drink'},
+	{ name: 'Steamed Milk', price: 4.50, type: 'drink'},
+	{ name: 'Butter Croissant', price: 5.50, type: 'food'},
+	{ name: 'Vanilla Scone', price: 3.50, type: 'food'}
 ];
 
 const itemsGrid = document.getElementById('items-grid');
 const orderList = document.getElementById('order-list');
 const orderTotalVal = document.getElementById('order-total-val');
 let order = [];
+let redeemFreeDrink = false;
+
+// Oat milk substitution mapping
+const oatMilkSubs = {
+	'Latte': 'Oat milk latte',
+	'Cappuccino': 'Oat milk Cappuccino',
+	'Mocha': 'Oat milk Mocha',
+	'Oat milk latte': 'Latte',
+	'Oat milk Cappuccino': 'Cappuccino',
+	'Oat milk Mocha': 'Mocha'
+};
 
 function renderMenu() {
 	itemsGrid.innerHTML = '';
 	menuItems.forEach((item, idx) => {
+		// Skip oat milk items, only available via the substitute button
+		if (item.name.toLowerCase().startsWith('oat milk')) return;
 		const div = document.createElement('div');
 		div.className = 'item-card';
+		div.setAttribute('data-tooltip', `Click to add ${item.name} to order`);
 		div.innerHTML = `
 			<div class="item-name">${item.name}</div>
+			${oatMilkSubs.hasOwnProperty(item.name) ? '<div class="item-sub-label">Oat milk option available</div>' : ''}
 			<div class="item-price">$${item.price.toFixed(2)}</div>
 		`;
 		div.onclick = () => addToOrder(idx);
@@ -47,23 +96,91 @@ function addToOrder(idx) {
 function renderOrder() {
 	orderList.innerHTML = '';
 	let total = 0;
+
+	// Find cheapest drink index for free drink redemption
+	let cheapestDrinkIdx = -1;
+	if (redeemFreeDrink) {
+		let cheapestPrice = Infinity;
+		order.forEach((item, idx) => {
+			if (item.type === 'drink' && item.price < cheapestPrice) {
+				cheapestPrice = item.price;
+				cheapestDrinkIdx = idx;
+			}
+		});
+		// If no drinks in order, can't redeem
+		if (cheapestDrinkIdx === -1) redeemFreeDrink = false;
+	}
+
 	order.forEach((item, idx) => {
 		const li = document.createElement('li');
+		const isFree = (idx === cheapestDrinkIdx);
+		const canSub = oatMilkSubs.hasOwnProperty(item.name);
+		const isOat = item.name.toLowerCase().startsWith('oat milk');
 		li.innerHTML = `
-			<span>${item.name}</span>
+			<span>${item.name}${isFree ? ' <span style="color: green; font-weight: bold;">(FREE)</span>' : ''}</span>
 			<span class="price-delete-wrap">
-				<span class="order-price">$${item.price.toFixed(2)}</span>
-				<button class="delete-btn" title="Remove">&times;</button>
+				${canSub ? `<button class="sub-btn" data-tooltip="${isOat ? 'Switch to regular milk' : 'Switch to oat milk'}">${isOat ? 'Regular' : 'Sub Oat Milk'}</button>` : ''}
+				<span class="order-price" ${isFree ? 'style="text-decoration: line-through; color: #999;"' : ''}>$${item.price.toFixed(2)}</span>
+				<button class="delete-btn" data-tooltip="Remove">&times;</button>
 			</span>
 		`;
 		li.querySelector('.delete-btn').onclick = () => {
 			order.splice(idx, 1);
 			renderOrder();
 		};
+		if (canSub) {
+			li.querySelector('.sub-btn').onclick = () => {
+				const subName = oatMilkSubs[item.name];
+				const subItem = menuItems.find(m => m.name === subName);
+				if (subItem) {
+					order[idx] = { ...subItem };
+					renderOrder();
+				}
+			};
+		}
 		orderList.appendChild(li);
-		total += item.price;
+		total += isFree ? 0 : item.price;
 	});
 	orderTotalVal.textContent = `$${total.toFixed(2)}`;
+	updatePointsInfo();
+}
+
+function updatePointsInfo() {
+	const pointsInfo = document.getElementById('points-info');
+	const pointsDisplay = document.getElementById('points-display');
+	const redeemBtn = document.getElementById('redeem-drink-btn');
+
+	if (!pointsInfo) return;
+
+	const customerName = document.getElementById('order-customer-name').value.trim();
+	const customer = customerData.find(c => c.name.toLowerCase() === customerName.toLowerCase());
+
+	if (!customer) {
+		pointsInfo.style.display = 'none';
+		redeemFreeDrink = false;
+		return;
+	}
+
+	const hasDrinks = order.some(item => item.type === 'drink');
+
+	pointsInfo.style.display = 'block';
+	pointsDisplay.textContent = `Points available: ${customer.numPoints} points`;
+
+	if (customer.numPoints >= 10 && hasDrinks) {
+		redeemBtn.style.display = 'inline-block';
+		if (redeemFreeDrink) {
+			redeemBtn.textContent = 'Free Drink Applied (-10 pts)';
+			redeemBtn.style.backgroundColor = '#4CAF50';
+			redeemBtn.setAttribute('data-tooltip', 'Remove Free Drink discount');
+		} else {
+			redeemBtn.textContent = 'Redeem Free Drink (-10 pts)';
+			redeemBtn.style.backgroundColor = '#ff9800';
+			redeemBtn.setAttribute('data-tooltip', 'Use 10 points to get the cheapest drink free');
+		}
+	} else {
+		redeemBtn.style.display = 'none';
+		if (!hasDrinks) redeemFreeDrink = false;
+	}
 }
 
 // Tab Navigation 
@@ -85,14 +202,14 @@ navButtons.forEach(btn => {
 
 // --- Order History ---
 let orderHistory = [
-    { id: 5001, customerID: 1, date: '2/05/26', time: '8:15am', cost: 8.25, items: [
+    { id: 5001, customerID: 1, date: '2/19/26', time: '8:15 AM', cost: 8.25, items: [
         { name: 'Whole Milk Latte', price: 4.50 },
         { name: 'Butter Croissant', price: 3.75 }
     ]},
-    { id: 5002, customerID: 2, date: '2/05/26', time: '9:33am', cost: 3.75, items: [
+    { id: 5002, customerID: 2, date: '2/19/26', time: '9:33 AM', cost: 3.75, items: [
         { name: 'Butter Croissant', price: 3.75 }
     ]},
-    { id: 5003, customerID: 1, date: '2/05/26', time: '11:56am', cost: 13.50, items: [
+    { id: 5003, customerID: 1, date: '2/19/26', time: '11:56 AM', cost: 13.50, items: [
         { name: 'Double Espresso', price: 3.00 },
         { name: 'Double Espresso', price: 3.00 },
         { name: 'Butter Croissant', price: 3.75 },
@@ -105,6 +222,7 @@ function renderHistory() {
 	tbody.innerHTML = '';
 	orderHistory.forEach((entry, idx) => {
 		const tr = document.createElement('tr');
+		tr.setAttribute('data-tooltip', `Click to view order #${entry.id} details`);
 		tr.innerHTML = `
 			<td>${entry.date}&nbsp;&nbsp;${entry.time}</td>
 			<td>#${entry.id}</td>
@@ -162,6 +280,16 @@ function showHistoryOrder(idx) {
 
     document.getElementById('history-order-total').textContent = `$${entry.cost.toFixed(2)}`;
 
+    // Show redeemed drink note if applicable
+    if (entry.redeemedDrink) {
+        const redeemLi = document.createElement('li');
+        redeemLi.innerHTML = `
+            <span style="color: green; font-style: italic;">Rewards: free ${entry.redeemedDrink}</span>
+            <span class="order-price" style="color: green;">-$${entry.redeemedDrinkPrice.toFixed(2)}</span>
+        `;
+        list.appendChild(redeemLi);
+    }
+
     // Highlight selected row
     const rows = document.querySelectorAll('#history-tbody tr');
     rows.forEach(r => r.classList.remove('selected'));
@@ -204,9 +332,10 @@ function renderInventory() {
         const tr = document.createElement('tr');
         // Add click listener to select item
         tr.onclick = () => showInventoryItem(item, idx);
-        
-        // Highlight logic (optional, but good UX)
-        tr.className = 'inventory-row'; // You can add :hover styles in CSS for this class
+        tr.setAttribute('data-tooltip', `Click to view ${item.name} details`);
+
+        // Highlight logic
+        tr.className = 'inventory-row';
         
         tr.innerHTML = `
             <td>${item.name}</td>
@@ -216,7 +345,7 @@ function renderInventory() {
         tbody.appendChild(tr);
     });
 
-    // 2. Render Status List (Logic remains same)
+    // 2. Render Status List
     renderStatusList();
 }
 
@@ -235,6 +364,7 @@ function renderStatusList() {
         // Only show items that need attention? Or all? 
         // Showing all for now based on previous code, or just red/yellow to save space.
         const li = document.createElement('li');
+        li.setAttribute('data-tooltip', `Click to view ${item.name} details (Stock: ${item.stock})`);
         li.innerHTML = `
             <span>${item.name}</span>
             <span class="status-dot ${color}"></span>
@@ -362,6 +492,7 @@ function renderCustomers(results) {
 
     data.forEach((customer) => {
         const tr = document.createElement('tr');
+        tr.setAttribute('data-tooltip', `Click to view ${customer.name}'s profile`);
         tr.innerHTML = `<td>${customer.name}</td><td>${customer.phone}</td><td>${customer.numPoints}</td>`;
         tr.onclick = () => {
             document.querySelectorAll('#customers-tbody tr').forEach(r => r.classList.remove('selected'));
@@ -390,7 +521,7 @@ function renderProfileViewMode(customer) {
         <div class="profile-header-row">
             <span class="profile-title-text">Customer Profile</span>
             <div class="profile-actions">
-                <button class="icon-btn edit-btn" id="edit-profile-btn" title="Edit Profile">✎</button>
+                <button class="icon-btn edit-btn" id="edit-profile-btn" data-tooltip="Edit Profile">✎</button>
             </div>
         </div>
         
@@ -425,8 +556,8 @@ function enableEditMode(customer) {
 
     // 1. Replace Buttons
     actionsDiv.innerHTML = `
-        <button class="icon-btn confirm-btn" id="confirm-edit-btn" title="Save Changes">✔</button>
-        <button class="icon-btn delete-btn" id="delete-toggle-btn" title="Delete Customer">🗑</button>
+        <button class="icon-btn confirm-btn" id="confirm-edit-btn" data-tooltip="Save Changes">✔</button>
+        <button class="icon-btn delete-btn" id="delete-toggle-btn" data-tooltip="Delete Customer">🗑</button>
     `;
 
     // 2. Inject Inputs
@@ -448,7 +579,7 @@ function enableEditMode(customer) {
     const formWrapper = document.getElementById('edit-form-wrapper');
     const inputs = formWrapper.querySelectorAll('input');
 
-    // --- NEW: Add Enter Key Listener to all new inputs ---
+    // -- Add Enter Key Listener to all new inputs ---
     inputs.forEach(input => {
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -463,11 +594,11 @@ function enableEditMode(customer) {
         if (isMarkedForDeletion) {
             formWrapper.classList.add('pending-delete-state');
             inputs.forEach(input => input.disabled = true);
-            confirmBtn.title = "Confirm Deletion";
+            confirmBtn.setAttribute('data-tooltip', 'Confirm Deletion');
         } else {
             formWrapper.classList.remove('pending-delete-state');
             inputs.forEach(input => input.disabled = false);
-            confirmBtn.title = "Save Changes";
+            confirmBtn.setAttribute('data-tooltip', 'Save Changes');
         }
     };
 
@@ -498,7 +629,7 @@ function enableEditMode(customer) {
         }
     };
 }
-// Helper to render the order list (extracted from your previous code)
+// Helper to render the order list
 function renderProfileOrders(customer) {
     const orderContainer = document.getElementById('profile-order-list');
     const personalHistory = orderHistory.filter(o => o.customerID === customer.customerID);
@@ -537,6 +668,11 @@ function renderProfileOrders(customer) {
                             <span>$${item.price.toFixed(2)}</span>
                         </li>
                     `).join('')}
+                    ${order.redeemedDrink ? `
+                        <li style="display:flex; justify-content:space-between; color: green; font-style: italic; margin-top: 0.3vw;">
+                            <span>Rewards: free ${order.redeemedDrink}</span>
+                            <span>-$${order.redeemedDrinkPrice.toFixed(2)}</span>
+                        </li>` : ''}
                 </ul>
             </div>
         `;
@@ -604,17 +740,19 @@ function setNewCustomerState() {
 // 1. Listen for typing (Input Event)
 nameInput.addEventListener('input', function() {
     const val = this.value;
-    
+
     // Clear hint if input is empty
     if (!val) {
         hintInput.value = '';
         setExistingCustomerState(); // Default back to clean state
+        redeemFreeDrink = false;
+        updatePointsInfo();
         return;
     }
 
     // A. Autocomplete/Hint Logic
     const match = customerData.find(c => c.name.toLowerCase().startsWith(val.toLowerCase()));
-    
+
     if (match) {
         hintInput.value = match.name;
     } else {
@@ -629,7 +767,10 @@ nameInput.addEventListener('input', function() {
         setExistingCustomerState();
     } else {
         setNewCustomerState();
+        redeemFreeDrink = false;
     }
+    updatePointsInfo();
+    renderOrder();
 });
 
 // 2. Listen for Tab Key (Autocomplete)
@@ -638,6 +779,8 @@ nameInput.addEventListener('keydown', function(e) {
         e.preventDefault();
         this.value = hintInput.value;
         setExistingCustomerState(); // We autofilled an existing name, so hide phone field
+        updatePointsInfo();
+        renderOrder();
     }
 });
 
@@ -664,14 +807,20 @@ placeOrderBtn.addEventListener('click', () => {
     let customer = customerData.find(c => c.name.toLowerCase() === customerName.toLowerCase());
     let customerID;
 
+    // Count only drinks for points
+    const drinkCount = order.filter(item => item.type === 'drink').length;
+
     if (customer) {
         // --- EXISTING CUSTOMER ---
         customerID = customer.customerID;
-        customer.numPoints += order.length;
+        customer.numPoints += drinkCount;
+        if (redeemFreeDrink) {
+            customer.numPoints -= 10;
+        }
     } else {
         // --- NEW CUSTOMER ---
         const customerPhone = phoneInput.value.trim();
-        
+
         // Validation: Phone is required for new accounts
         if (!customerPhone) {
             alert("This is a new customer. Please enter a phone number to create the account.");
@@ -680,12 +829,12 @@ placeOrderBtn.addEventListener('click', () => {
 
         const maxId = customerData.reduce((max, c) => (c.customerID > max ? c.customerID : max), 0);
         customerID = maxId + 1;
-        
+
         const newCustomer = {
             customerID: customerID,
             name: customerName,
             phone: customerPhone,
-            numPoints: order.length
+            numPoints: drinkCount
         };
         customerData.push(newCustomer);
     }
@@ -698,8 +847,24 @@ placeOrderBtn.addEventListener('click', () => {
         }
     });
 
-    // Update History
-    const totalCost = order.reduce((sum, item) => sum + item.price, 0);
+    // Update History, calculate cost with free drink discount
+    let totalCost = order.reduce((sum, item) => sum + item.price, 0);
+    let redeemedDrinkName = null;
+    let redeemedDrinkPrice = 0;
+    if (redeemFreeDrink) {
+        // Find and subtract cheapest drink price
+        let cheapestPrice = Infinity;
+        order.forEach(item => {
+            if (item.type === 'drink' && item.price < cheapestPrice) {
+                cheapestPrice = item.price;
+                redeemedDrinkName = item.name;
+            }
+        });
+        if (redeemedDrinkName) {
+            redeemedDrinkPrice = cheapestPrice;
+            totalCost -= cheapestPrice;
+        }
+    }
     const newOrderID = orderHistory.length > 0 ? orderHistory[orderHistory.length - 1].id + 1 : 5001;
 
     const newHistoryEntry = {
@@ -708,23 +873,34 @@ placeOrderBtn.addEventListener('click', () => {
         date: dateStr,
         time: timeStr,
         cost: totalCost,
-        items: [...order]
+        items: [...order],
+        redeemedDrink: redeemedDrinkName,
+        redeemedDrinkPrice: redeemedDrinkPrice
     };
     orderHistory.push(newHistoryEntry);
 
     // Cleanup & Refresh
-    order = []; 
-    nameInput.value = ''; 
-    hintInput.value = ''; 
+    order = [];
+    nameInput.value = '';
+    hintInput.value = '';
     phoneInput.value = ''; // Clear phone
-    
+    redeemFreeDrink = false;
+
     setExistingCustomerState(); // Reset button to green/hidden phone
 
-    renderOrder();     
-    renderHistory();    
-    renderInventory();  
-    renderCustomers();  
+    renderOrder();
+    renderHistory();
+    renderInventory();
+    renderCustomers();
+    updateOrderHeader();  
 
+});
+
+// 4. Redeem Free Drink Button
+document.getElementById('redeem-drink-btn').addEventListener('click', () => {
+    redeemFreeDrink = !redeemFreeDrink;
+    updatePointsInfo();
+    renderOrder();
 });
 
 // Allow pressing "Enter" to save Inventory edits
@@ -742,3 +918,17 @@ placeOrderBtn.addEventListener('click', () => {
 renderMenu();
 renderOrder();
 renderCustomers();
+updateOrderHeader();
+
+function updateOrderHeader() {
+	const nextID = orderHistory.length > 0 ? orderHistory[orderHistory.length - 1].id + 1 : 5001;
+	document.getElementById('current-order-number').textContent = `Order <#${nextID}>`;
+
+	const now = new Date();
+	const dateStr = now.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+	const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+	document.getElementById('current-order-time').textContent = `${timeStr}  ${dateStr}`;
+}
+
+// Update the clock every minute
+setInterval(updateOrderHeader, 1000);

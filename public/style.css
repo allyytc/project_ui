@@ -33,6 +33,12 @@
 	margin-bottom: 0.2em;
 	text-align: center;
 }
+.item-sub-label {
+	font-size: 0.8vw;
+	color: #888;
+	font-style: italic;
+	margin-bottom: 0.2em;
+}
 .item-price {
 	font-size: 1.3vw;
 	color: #2c3e50;
@@ -147,6 +153,9 @@ body {
 	list-style: none;
 	padding: 0;
 	margin: 0 0 1em 0;
+	flex: 1 1 auto;
+	overflow-y: auto;
+	min-height: 0;
 }
 .order-list li {
 	display: flex;
@@ -182,6 +191,21 @@ body {
 .delete-btn:hover {
 	background: #ff4d4d;
 	color: #fff;
+}
+.sub-btn {
+	background: #e8d8a0;
+	border: none;
+	color: #665500;
+	font-size: 0.75em;
+	border-radius: 4px;
+	cursor: pointer;
+	padding: 0.2em 0.5em;
+	transition: background 0.2s;
+	white-space: nowrap;
+}
+.sub-btn:hover {
+	background: #d4c070;
+	color: #333;
 }
 
 .order-total {
@@ -497,3 +521,25 @@ body {
 
 .delete-btn { background: #f44336; color: white; }
 .delete-btn:hover { background: #d32f2f; }
+
+/* Custom Tooltip */
+#custom-tooltip {
+	position: fixed;
+	z-index: 99999;
+	background: #333;
+	color: #fff;
+	padding: 5px 10px;
+	border-radius: 5px;
+	font-size: 13px;
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.15s;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+	max-width: 300px;
+	white-space: normal;
+	word-wrap: break-word;
+}
+#custom-tooltip.visible {
+	opacity: 1;
+}
