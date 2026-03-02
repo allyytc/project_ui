@@ -3,11 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sally's Coffee Shop UI</title>
+    <title>Sally's Coffee Shop</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
+        <div class="reset-bar">
+            <span class="app-title">Sally's Coffee Shop</span>
+            <button class="reset-btn" id="reset-btn" data-tooltip="Reset database to original sample data">Reset</button>
+        </div>
+
+
         <nav class="navbar">
             <button class="nav-btn active" id="nav-items" data-tooltip="Create a new order">Create Order</button>
             <button class="nav-btn" id="nav-history" data-tooltip="View past orders">Order History</button>
@@ -42,7 +48,7 @@
                     </div>
 
                     <div id="new-customer-fields" style="display: none; margin-bottom: 0.5em;">
-                        <input type="text" id="order-customer-phone" placeholder="Phone Number (New Account)"
+                        <input type="text" id="order-customer-number" placeholder="Phone Number (New Account)"
                             data-tooltip="Phone number for new customer account"
                             style="width: 100%; padding: 0.5em; font-size: 1vw; box-sizing: border-box; border: 1px solid #ccc;">
                     </div>
@@ -62,7 +68,7 @@
                         Place Order
                     </button>
                 </div>          
-                </div>
+            </div>
             <div class="items-grid" id="items-grid">
                 <!-- Menu items will be rendered here by JS -->
             </div>
@@ -82,7 +88,6 @@
                 </div>
             </div>
             <div class="history-table-wrap">
-
                 <!-- ACTIVE QUEUE -->
                 <div class="queue-section">
                     <div class="queue-header-row">
@@ -124,25 +129,22 @@
         </div>
         <div class="main-content inventory-page page" id="page-inventory" style="display:none;">
             <div class="status-panel" id="inventory-panel">
-                
+
                 <div id="inventory-status-view">
                     <div class="status-header">Status Alerts</div>
                     <div style="padding: 1vw; text-align: center; color: #872828; font-size: 0.9vw;">
                         <em>Click an item in the table to view details.</em>
                     </div>
-                    <ul class="status-list" id="status-list">
-                        </ul>
-                        
+                    <ul class="status-list" id="status-list"></ul>
                 </div>
 
                 <div id="inventory-detail-view" style="display:none; flex-direction: column; height: 100%;">
-                    
                     <div class="profile-header-row">
                         <div style="display: flex; align-items: center; gap: 0.5vw;">
                             <button class="icon-btn" id="btn-inv-back" data-tooltip="Back to Status List" style="background: transparent; font-size: 1.2vw;">←</button>
                             <span class="profile-title-text" id="inv-detail-title" style="font-size: 1.2vw;">Item Name</span>
                         </div>
-                        
+
                         <div class="profile-actions">
                             <button class="icon-btn edit-btn" id="btn-inv-edit" data-tooltip="Edit Item">✎</button>
                             <button class="icon-btn confirm-btn" id="btn-inv-confirm" data-tooltip="Save Changes" style="display: none;">✔</button>
@@ -161,7 +163,6 @@
                         <label style="font-size:0.9vw; font-weight:bold;">Location:</label>
                         <input type="text" class="profile-input" id="edit-inv-location" data-tooltip="Enter storage location">
                     </div>
-
                 </div>
             </div>            
             <div class="inventory-table-wrap">
@@ -174,12 +175,13 @@
                             <!-- -----------Add a filter for stock and location in the future? -->
                         </tr>
                     </thead>
-                    <tbody id="inventory-tbody">
-                        <!-- -----------Inventory rows rendered by JS -->
-                    </tbody>
+                    <tbody id="inventory-tbody"></tbody>
+                    <!-- -----------Inventory rows rendered by JS -->
+
                 </table>
             </div>
         </div>
+
         <div class="main-content customers-page page" id="page-customers" style="display:none;">
             <div class="status-panel">
                 <div id="customer-details" style="padding: 1vw; font-size: 1.2vw;">
@@ -190,11 +192,11 @@
             <div class="customers-table-wrap">
                 <div class="search-add-bar">
                     <input type="text" id="input-name" placeholder="Name" data-tooltip="Search or enter customer name">
-                    <input type="text" id="input-phone" placeholder="Phone Number" data-tooltip="Search or enter phone number">
+                    <input type="text" id="input-number" placeholder="Phone Number" data-tooltip="Search or enter phone number">
                     <button class="action-btn" id="add-customer-btn" data-tooltip="Add a new customer with the name and phone above">+</button>
                     <button class="action-btn" id="search-customer-btn" data-tooltip="Search customers by name and phone">🔍</button>
                 </div>
-
+                
                 <table class="customers-table">
                     <thead>
                         <tr>
@@ -203,8 +205,7 @@
                             <th>Points</th>
                         </tr>
                     </thead>
-                    <tbody id="customers-tbody">
-                        </tbody>
+                    <tbody id="customers-tbody"></tbody>
                 </table>
             </div>
         </div>
