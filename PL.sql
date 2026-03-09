@@ -1,8 +1,8 @@
 -- =============================================================
 -- PL.SQL — Sally's Coffee Shop
--- Stored Procedures for Project Step 4
+-- Stored Procedures for Project Step 5
 -- =============================================================
--- Citation: Structure based on CS340 Project Step 4 assignment
+-- Citation: Structure based on CS340 Project Step 5 assignment
 -- example (sp_moviedb.sql) and class materials.
 -- =============================================================
 
