@@ -459,11 +459,43 @@ async function showQueueOrder(idx) {
     document.querySelectorAll('#history-tbody tr').forEach(r => r.classList.remove('selected'));
 }
 
-// CHANGE: Receives items from the caller instead of re-aggregating.
-// Inputs now store data-productid (needed for DB updates) instead of data-name.
+// Rewritten: uses a live editItems array so new items can be added via
+// the dropdown, not just existing ones having their quantity changed.
 async function enableQueueEditMode(idx, items) {
     const entry = activeQueue[idx];
     const panel = document.getElementById('history-order-summary');
+
+    // Working copy — each entry tracks oldQuantity separately from current quantity
+    const editItems = items.map(item => ({
+        productID:   item.productID,
+        productName: item.productName,
+        productCost: Number(item.productCost),
+        oldQuantity: item.quantity,
+        quantity:    item.quantity
+    }));
+
+    function calcTotal() {
+        return editItems.reduce((sum, it) => sum + it.quantity * it.productCost, 0);
+    }
+
+    function renderEditList() {
+        const list = document.getElementById('queue-edit-list');
+        list.innerHTML = editItems.map((item, i) => `
+            <li style="gap:0.5em;">
+                <span style="flex:1; font-size:0.9vw;">${item.productName}</span>
+                <input type="number" class="qty-input" id="edit-qty-${i}"
+                       value="${item.quantity}" min="0">
+                <span class="order-price">$${item.productCost.toFixed(2)}</span>
+            </li>
+        `).join('');
+
+        editItems.forEach((item, i) => {
+            document.getElementById(`edit-qty-${i}`).addEventListener('input', (e) => {
+                editItems[i].quantity = parseInt(e.target.value) || 0;
+                document.getElementById('queue-edit-total').textContent = `$${calcTotal().toFixed(2)}`;
+            });
+        });
+    }
 
     panel.innerHTML = `
         <div class="profile-header-row" style="margin-bottom:0.8em;">
@@ -473,41 +505,51 @@ async function enableQueueEditMode(idx, items) {
                 <button class="icon-btn delete-btn" id="queue-cancel-order-btn" data-tooltip="Cancel this order">🗑</button>
             </div>
         </div>
-        <ul class="order-list" id="queue-edit-list">
-            ${items.map((item, i) => `
-                <li style="gap:0.5em;">
-                    <span style="flex:1; font-size:0.9vw;">${item.productName}</span>
-                    <input type="number" class="qty-input" id="edit-qty-${i}"
-                           value="${item.quantity}" min="0"
-                           data-productid="${item.productID}"
-                           data-oldqty="${item.quantity}"
-                           data-price="${item.productCost}">
-                    <span class="order-price">$${Number(item.productCost).toFixed(2)}</span>
-                </li>
-            `).join('')}
-        </ul>
+        <ul class="order-list" id="queue-edit-list"></ul>
+        <div style="display:flex; gap:0.5em; margin-top:0.8em; align-items:center;">
+            <select id="add-item-select" style="flex:1; padding:0.3em; font-size:0.85vw; border:1px solid #ccc; border-radius:4px;">
+                <option value="">— Add item —</option>
+                ${menuItems.map(m => `<option value="${m.productID}" data-name="${m.productName}" data-price="${m.productCost}">${m.productName} ($${Number(m.productCost).toFixed(2)})</option>`).join('')}
+            </select>
+            <button id="add-item-btn" class="action-btn"
+                    style="padding:0.3em 0.8em; font-size:0.85vw;"
+                    data-tooltip="Add this item to the order">+</button>
+        </div>
         <div class="order-total" style="margin-top:1em;">
             <span>Total:</span>
-            <span id="queue-edit-total">$${Number(entry.orderCost).toFixed(2)}</span>
+            <span id="queue-edit-total">$${calcTotal().toFixed(2)}</span>
         </div>
         <div style="font-size:0.75vw; color:#888; text-align:right; margin-top:0.3em;">
             Set qty to 0 to remove an item.
         </div>
     `;
 
-    // Live total update
-    items.forEach((item, i) => {
-        document.getElementById(`edit-qty-${i}`).addEventListener('input', () => {
-            let total = 0;
-            items.forEach((it, j) => {
-                const qty = parseInt(document.getElementById(`edit-qty-${j}`)?.value) || 0;
-                total += qty * Number(it.productCost);
-            });
-            document.getElementById('queue-edit-total').textContent = `$${total.toFixed(2)}`;
-        });
-    });
+    renderEditList();
 
-    document.getElementById('queue-save-btn').onclick = () => saveQueueEdit(idx, items);
+    // Add item button: bump qty if item already in order, otherwise add new row
+    document.getElementById('add-item-btn').onclick = () => {
+        const sel = document.getElementById('add-item-select');
+        const productID = parseInt(sel.value);
+        if (!productID) return;
+        const existing = editItems.findIndex(it => it.productID === productID);
+        if (existing >= 0) {
+            editItems[existing].quantity++;
+        } else {
+            const opt = sel.options[sel.selectedIndex];
+            editItems.push({
+                productID,
+                productName: opt.dataset.name,
+                productCost: Number(opt.dataset.price),
+                oldQuantity: 0,  // signals INSERT to the backend
+                quantity: 1
+            });
+        }
+        sel.value = '';
+        renderEditList();
+        document.getElementById('queue-edit-total').textContent = `$${calcTotal().toFixed(2)}`;
+    };
+
+    document.getElementById('queue-save-btn').onclick = () => saveQueueEdit(idx, editItems);
     document.getElementById('queue-cancel-order-btn').onclick = () => {
         if (confirm(`Cancel order for ${entry.customerName}? Inventory will be restored.`)) {
             cancelQueueOrder(idx);
@@ -516,24 +558,19 @@ async function enableQueueEditMode(idx, items) {
 }
 
 
-// CHANGE: Completely rewritten. Instead of mutating local arrays,
-// sends updates to the backend which handles the DB transaction:
-// updates OrderHasProducts quantities, adjusts Inventory, recalculates cost.
-async function saveQueueEdit(idx, originalItems) {
+// Rewritten: editItems array is passed directly (quantities already mutated
+// by the live inputs), so no DOM reading needed here.
+async function saveQueueEdit(idx, editItems) {
     const entry = activeQueue[idx];
-    const updates = [];
-    let allZero = true;
 
-    originalItems.forEach((item, i) => {
-        const newQty = parseInt(document.getElementById(`edit-qty-${i}`).value) || 0;
-        if (newQty > 0) allZero = false;
-        updates.push({
-            productID: item.productID,
-            oldQuantity: item.quantity,
-            newQuantity: newQty,
-            unitPrice: Number(item.productCost)
-        });
-    });
+    const updates = editItems.map(item => ({
+        productID:   item.productID,
+        oldQuantity: item.oldQuantity,
+        newQuantity: item.quantity,
+        unitPrice:   item.productCost
+    }));
+
+    const allZero = updates.every(u => u.newQuantity === 0);
 
     if (allZero) {
         if (confirm("All items removed. Cancel this order entirely?")) {
@@ -1151,7 +1188,6 @@ placeOrderBtn.addEventListener('click', async () => {
     // NOTE: points are awarded on Complete, not here
     let customer = customerData.find(c => c.customerName.toLowerCase() === customerName.toLowerCase());
     let customerID;
-    const drinkCount = order.filter(item => item.productType === 'drink').length;
 
     if (!customer) {
         // --- NEW CUSTOMER ---
@@ -1221,7 +1257,6 @@ placeOrderBtn.addEventListener('click', async () => {
                 customerID,
                 totalCost,
                 items,
-                drinkCount,
                 redeemedPoints
             })
         });
