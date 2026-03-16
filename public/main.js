@@ -1,4 +1,13 @@
-// --- Custom Tooltip System ---
+// Citation for the following:
+//  Seth: Many times when implementing the code, I forgot to add comments
+//        intermittently, so I used claude to annotate verbose comments
+//        to better communicate to my teammate what I implemented
+// Date: January - March 2026
+// Copied from: Claude AI
+// Source URL: claude.com
+
+
+// Custom Tooltip System
 (function() {
 	const tip = document.createElement('div');
 	tip.id = 'custom-tooltip';
@@ -44,7 +53,7 @@ let redeemFreeDrink = false;
 let selectedQueueIdx = null;
 
 // Substitution mapping built dynamically from substituteProductID
-let oatMilkSubs = {};         // { productName: { name, productID, ... } }
+let oatMilkSubs = {};
 
 
 
@@ -169,6 +178,17 @@ function renderMenu() {
 
 // Updated
 function addToOrder(item) {
+
+    // Check stock before adding
+    const currentInOrder = order.filter(o => o.productID === item.productID).length;
+    const inv = inventoryData.find(i => i.productID === item.productID);
+    const available = inv ? inv.productStock : 0;
+
+    if (currentInOrder >= available) {
+        alert(`Cannot add ${item.productName}, only ${available} in stock.`);
+        return;
+    }
+
     order.push({
         productID: item.productID,
         productName: item.productName,
@@ -984,6 +1004,10 @@ function enableEditMode(customer) {
             // UPDATE customer
             const newName = document.getElementById('edit-name').value.trim();
             const newNumber = document.getElementById('edit-number').value.trim();
+            if (newNumber && !isValidPhone(newNumber)) {
+                alert("Please enter a phone number in the format: 123-456-7890");
+                return;
+            }
             const newPoints = parseInt(document.getElementById('edit-points').value);
 
             if (newName) {
@@ -1078,12 +1102,24 @@ document.getElementById('search-customer-btn').addEventListener('click', async (
     }
 });
 
+// Citation for the following function: isValidPhone
+// Date: March 2026
+// Copied from: Regular Expression to reformat a US phone number in Javascript
+// Source URL: https://stackoverflow.com/questions/8358084/regular-expression-to-reformat-a-us-phone-number-in-javascript
+
+function isValidPhone(phone) {
+    return /^\d{3}-\d{3}-\d{4}$/.test(phone);
+}
 // Add: Update array, clear inputs, show all
 document.getElementById('add-customer-btn').addEventListener('click', async () => {
     const name = nameInp.value.trim();
     const number = numberInp.value.trim();
 
     if (name && number) {
+        if (!isValidPhone(number)) {
+            alert("Please enter a phone number in the format: 123-456-7890");
+            return;
+        }
         try {
             const res = await fetch('/api/customers', {
                 method: 'POST',
@@ -1102,7 +1138,7 @@ document.getElementById('add-customer-btn').addEventListener('click', async () =
             alert('Failed to add customer.');
         }
     } else {
-        alert("Enter both Name and Phone Number to add a customer.");
+        alert("En   ter both Name and Phone Number to add a customer.");
     }
 });
 
@@ -1195,6 +1231,10 @@ placeOrderBtn.addEventListener('click', async () => {
         const customerNumber = numberInput.value.trim();
         if (!customerNumber) {
             alert("This is a new customer. Please enter a phone number to create the account.");
+            return;
+        }
+        if (!isValidPhone(customerNumber)) {
+            alert("Please enter a phone number in the format: 123-456-7890");
             return;
         }
         try {

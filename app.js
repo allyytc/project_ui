@@ -1,3 +1,12 @@
+// Citation for the following:
+//  Seth: Many times when implementing the code, I forgot to add comments
+//        intermittently, so I used claude to annotate verbose comments
+//        to better communicate to my teammate what I implemented
+// Date: February - March 2026
+// Copied from: Claude AI
+// Source URL: claude.com
+
+
 /*
     SETUP
 */
@@ -194,11 +203,25 @@ app.get('/api/orders/:id/items', async (req, res) => {
 });
 
 // POST /api/orders — Place a new order (enters queue with status='queued')
-// Calls sp_place_order to INSERT the order and update customer points,
-// then loops items to INSERT into OrderHasProducts and decrement Inventory.
+// Calls sp_place_order
 app.post('/api/orders', async (req, res) => {
     const { customerID, totalCost, items, redeemedPoints } = req.body;
     try {
+
+        // Validate stock before placing order
+        for (const item of items) {
+            const [[inv]] = await db.query(
+                'SELECT productStock FROM Inventory WHERE productID = ?',
+                [item.productID]
+            );
+            if (!inv || inv.productStock < item.quantity) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Insufficient stock for product ${item.productID}. Available: ${inv ? inv.productStock : 0}, Requested: ${item.quantity}`
+                });
+            }
+        }
+
         // SP inserts the order row and stores redeemedPoints; returns new orderID via OUT param
         await db.query(
             'CALL sp_place_order(?, ?, ?, @p_orderID)',
@@ -226,7 +249,7 @@ app.post('/api/orders', async (req, res) => {
 });
 
 // PUT /api/orders/:id/complete — Mark a queued order as completed
-// Calls sp_complete_order which flips status from 'queued' to 'completed'.
+// Calls sp_complete_order
 app.put('/api/orders/:id/complete', async (req, res) => {
     try {
         await db.query('CALL sp_complete_order(?)', [req.params.id]);
@@ -238,8 +261,7 @@ app.put('/api/orders/:id/complete', async (req, res) => {
 });
 
 // DELETE /api/orders/:id — Cancel a queued order and restore inventory
-// Calls sp_cancel_order which restores Inventory stock then deletes the order
-// (ON DELETE CASCADE removes OrderHasProducts rows automatically).
+// Calls sp_cancel_order 
 app.delete('/api/orders/:id', async (req, res) => {
     try {
         await db.query('CALL sp_cancel_order(?)', [req.params.id]);
