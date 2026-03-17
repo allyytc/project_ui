@@ -2,9 +2,11 @@
 //  Seth: Many times when implementing the code, I forgot to add comments
 //        intermittently, so I used claude to annotate verbose comments
 //        to better communicate to my teammate what I implemented
+//  Ally: Occassionally used Co-pilot to expedite creation of/improve 
+//        frontend/UI features, and assisting in commenting. 
 // Date: January - March 2026
-// Copied from: Claude AI
-// Source URL: claude.com
+// Copied from: Claude AI, Co-pilot AI
+// Source URL: claude.com, copilot.microsoft.com
 
 
 // Custom Tooltip System
@@ -1138,7 +1140,7 @@ document.getElementById('add-customer-btn').addEventListener('click', async () =
             alert('Failed to add customer.');
         }
     } else {
-        alert("En   ter both Name and Phone Number to add a customer.");
+        alert("Enter both Name and Phone Number to add a customer.");
     }
 });
 
@@ -1221,7 +1223,6 @@ placeOrderBtn.addEventListener('click', async () => {
     }
 
     // Identify Customer
-    // NOTE: points are awarded on Complete, not here
     let customer = customerData.find(c => c.customerName.toLowerCase() === customerName.toLowerCase());
     let customerID;
 
